@@ -1,0 +1,17 @@
+{
+  "name": "group-meeting-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {
+    "nodemon": "^2.0.4"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "kurento-client": "^6.13.0",
+    "socket.io": "^2.3.0"
+  },
+  "scripts": {
+    "dev": "nodemon index.js"
+  }
+}

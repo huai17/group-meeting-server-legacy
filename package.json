@@ -15,6 +15,6 @@
   },
   "scripts": {
     "dev": "nodemon index.js",
-    "deploy": "eb deploy face2face-env"
+    "deploy": "eb deploy Face2face-env"
   }
 }

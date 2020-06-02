@@ -2,8 +2,7 @@ const crypto = require("crypto");
 const redis = require("redis");
 
 const { REDIS_URI } = require("./configs/keys");
-console.log("-------------------------SESSIONS----------------------");
-console.log(REDIS_URI);
+
 const client = redis.createClient({ host: REDIS_URI, port: 6379 });
 
 const { promisify } = require("util");
@@ -16,8 +15,16 @@ const exists = promisify(client.exists).bind(client);
 const keys = promisify(client.keys).bind(client);
 
 function RoomSession(options) {
-  this.getRooms = async () => {
+  this.getRoomKeys = async () => {
     return await keys("room:*");
+  };
+
+  this.getTokenKeys = async () => {
+    return await keys("token:*");
+  };
+
+  this.getMemberKeys = async () => {
+    return await keys("member:*");
   };
 
   this.getRoom = async (roomId) => {

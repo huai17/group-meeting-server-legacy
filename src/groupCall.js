@@ -1,4 +1,5 @@
 const kurento = require("kurento-client");
+const { pickBy } = require("lodash");
 const { ClientSession, RoomSession } = require("./sessions");
 
 // Modify here the kurento media server address
@@ -94,6 +95,31 @@ const getRoom = (roomId) =>
     }
   });
 
+const getRooms = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const keys = await roomSession.getRoomKeys();
+      return resolve(
+        await Promise.all(
+          keys.map(async (key) => {
+            const room = await roomSession.getRoom(key.split(":")[1]);
+
+            return pickBy(
+              {
+                ...room,
+                mediaPipelineId: undefined,
+                compositeId: undefined,
+              },
+              (e) => e !== undefined
+            );
+          })
+        )
+      );
+    } catch (error) {
+      return reject(error);
+    }
+  });
+
 const createRoom = ({ socketId, numberOfMembers = 10 }) =>
   new Promise(async (resolve, reject) => {
     let mediaPipeline = null;
@@ -107,7 +133,16 @@ const createRoom = ({ socketId, numberOfMembers = 10 }) =>
         compositeId: composite.id,
         numberOfMembers,
       });
-      return resolve({ ...room, mediaPipeline, composite });
+      return resolve(
+        pickBy(
+          {
+            ...room,
+            mediaPipelineId: undefined,
+            compositeId: undefined,
+          },
+          (e) => e !== undefined
+        )
+      );
     } catch (error) {
       if (composite) composite.release();
       if (mediaPipeline) mediaPipeline.release();
@@ -216,6 +251,7 @@ const onIceCandidate = ({ socketId, candidate: _candidate }) => {
 };
 
 module.exports = {
+  getRooms,
   createRoom,
   releaseRoom,
   joinRoom,

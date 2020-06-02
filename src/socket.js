@@ -1,4 +1,5 @@
 const {
+  getRooms,
   createRoom,
   releaseRoom,
   joinRoom,
@@ -8,7 +9,7 @@ const {
 
 module.exports = (io) => {
   io.on("connect", (socket) => {
-    console.log(`Connection ${socket.id} - connect`);
+    // console.log(`Connection ${socket.id} - connect`);
 
     // error handle
     socket.on("error", (error) => {
@@ -17,14 +18,31 @@ module.exports = (io) => {
     });
 
     socket.on("disconnect", () => {
-      console.log(`Connection ${socket.id} - disconnect`);
+      // console.log(`Connection ${socket.id} - disconnect`);
       leaveRoom({ socketId: socket.id });
     });
 
     socket.on("message", (message) => {
-      console.log(`Connection ${socket.id} - message: ${message.id}`);
+      // console.log(`Connection ${socket.id} - message: ${message.id}`);
 
       switch (message.id) {
+        case "getRooms":
+          getRooms()
+            .then((rooms) => {
+              socket.send({
+                id: "getRoomsResponse",
+                response: "success",
+                rooms,
+              });
+            })
+            .catch((error) => {
+              socket.send({
+                id: "getRoomsResponse",
+                response: "fail",
+                error,
+              });
+            });
+          break;
         case "createRoom":
           // TODO: who can create room
           createRoom({ socketId: socket.id, numberOfMembers: 10 })
@@ -32,10 +50,7 @@ module.exports = (io) => {
               socket.send({
                 id: "createRoomResponse",
                 response: "success",
-                room: {
-                  id: room.id,
-                  tokens: room.tokens,
-                },
+                room,
               });
             })
             .catch((error) => {

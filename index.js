@@ -9,9 +9,6 @@ const redisAdapter = require("socket.io-redis");
 
 const { REDIS_URI } = require("./src/configs/keys");
 
-console.log("-------------------------REDIS----------------------");
-console.log(REDIS_URI);
-
 io.adapter(redisAdapter({ host: REDIS_URI, port: 6379 }));
 
 require("./src/socket")(io);

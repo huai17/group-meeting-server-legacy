@@ -88,10 +88,12 @@ const getRoom = (roomId) =>
     try {
       room = await roomSession.getRoom(roomId);
       if (!room) return resolve(null);
-      const mediaPipeline = await getMediaObjectById(room.mediaPipelineId);
-      const composite = await getMediaObjectById(room.compositeId);
-      return resolve({ ...room, mediaPipeline, composite });
+      room.mediaPipeline = await getMediaObjectById(room.mediaPipelineId);
+      room.composite = await getMediaObjectById(room.compositeId);
+      return resolve(room);
     } catch (error) {
+      if (room.composite) room.composite.release();
+      if (room.mediaPipeline) room.mediaPipeline.release();
       if (room && room.members) {
         for (let socketId in room.members) {
           io.to(socketId).send({ id: "stopCommunication" });

@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const app = express();
 const http = require("http");
@@ -10,6 +11,8 @@ const { REDIS_URI } = require("./src/configs/keys");
 io.adapter(redisAdapter({ host: REDIS_URI, port: 6379 }));
 
 require("./src/socket")(io);
+
+app.use(cors());
 
 // port setting
 const PORT = process.env.PORT || 5000;

@@ -84,13 +84,20 @@ const createWebRtcEndPoint = (mediaPipeline) =>
 
 const getRoom = (roomId) =>
   new Promise(async (resolve, reject) => {
+    let room = null;
     try {
-      const room = await roomSession.getRoom(roomId);
+      room = await roomSession.getRoom(roomId);
       if (!room) return resolve(null);
       const mediaPipeline = await getMediaObjectById(room.mediaPipelineId);
       const composite = await getMediaObjectById(room.compositeId);
       return resolve({ ...room, mediaPipeline, composite });
     } catch (error) {
+      if (room && room.members) {
+        for (let socketId in room.members) {
+          io.to(socketId).send({ id: "stopCommunication" });
+        }
+      }
+      await roomSession.releaseRoom(roomId);
       return reject(error);
     }
   });
@@ -158,9 +165,12 @@ const releaseRoom = ({ roomId, io }) =>
       if (room.composite) room.composite.release();
       if (room.mediaPipeline) room.mediaPipeline.release();
 
-      for (let socketId in room.members) {
-        io.to(socketId).send({ id: "stopCommunication" });
+      if (room.members) {
+        for (let socketId in room.members) {
+          io.to(socketId).send({ id: "stopCommunication" });
+        }
       }
+
       await roomSession.releaseRoom(roomId);
       return resolve();
     } catch (error) {

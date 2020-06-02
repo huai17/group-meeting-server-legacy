@@ -2,7 +2,8 @@ const crypto = require("crypto");
 const redis = require("redis");
 
 const { REDIS_URI } = require("./configs/keys");
-
+console.log("-------------------------SESSIONS----------------------");
+console.log(REDIS_URI);
 const client = redis.createClient({ host: REDIS_URI, port: 6379 });
 
 const { promisify } = require("util");

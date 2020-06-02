@@ -84,7 +84,8 @@ const createWebRtcEndPoint = (mediaPipeline) =>
 const getRoom = (roomId) =>
   new Promise(async (resolve, reject) => {
     try {
-      const room = roomSession.getRoom(roomId);
+      const room = await roomSession.getRoom(roomId);
+      console.log(room);
       if (!room) return resolve(null);
       const mediaPipeline = await getMediaObjectById(room.mediaPipelineId);
       const composite = await getMediaObjectById(room.compositeId);
@@ -101,7 +102,7 @@ const createRoom = ({ socketId, numberOfMembers = 10 }) =>
     try {
       mediaPipeline = await createMediaPipeline();
       composite = await createComposite(mediaPipeline);
-      const room = roomSession.createRoom({
+      const room = await roomSession.createRoom({
         socketId,
         mediaPipelineId: mediaPipeline.id,
         compositeId: composite.id,
@@ -126,8 +127,7 @@ const releaseRoom = ({ roomId, io }) =>
       for (let socketId in room.members) {
         io.to(socketId).send({ id: "stopCommunication" });
       }
-
-      roomSession.releaseRoom(roomId);
+      await roomSession.releaseRoom(roomId);
       return resolve();
     } catch (error) {
       reject(error);
@@ -161,8 +161,7 @@ const joinRoom = ({ socket, name, token, sdpOffer }) =>
         socket.send({ id: "iceCandidate", candidate });
       });
       hubPort = await createHubPort(room.composite);
-
-      roomSession.joinRoom({
+      await roomSession.joinRoom({
         name: `${name}#${parsedToken[1]}`,
         token: token,
         socketId: socket.id,
@@ -170,7 +169,6 @@ const joinRoom = ({ socket, name, token, sdpOffer }) =>
         webRtcEndpointId: webRtcEndpoint.id,
         hubPortId: hubPort.id,
       });
-
       clientSession.register({
         socketId: socket.id,
         roomId,
@@ -204,7 +202,7 @@ const leaveRoom = async ({ roomId: _roomId, socketId }) => {
   let roomId = _roomId;
   const client = clientSession.unregister(socketId);
   if (client && client.roomId) roomId = client.roomId;
-  if (roomId) roomSession.leaveRoom({ roomId, socketId });
+  if (roomId) await roomSession.leaveRoom({ roomId, socketId });
 };
 
 const onIceCandidate = ({ socketId, candidate: _candidate }) => {

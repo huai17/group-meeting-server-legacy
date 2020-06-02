@@ -1,107 +1,144 @@
 const crypto = require("crypto");
+const redis = require("redis");
+
+const { REDIS_URI } = require("./configs/keys");
+
+const client = redis.createClient({ host: REDIS_URI, port: 6379 });
+
+const { promisify } = require("util");
+const hset = promisify(client.hset).bind(client);
+const hget = promisify(client.hget).bind(client);
+const hdel = promisify(client.hdel).bind(client);
+const hgetall = promisify(client.hgetall).bind(client);
+const del = promisify(client.del).bind(client);
+const exists = promisify(client.exists).bind(client);
+const keys = promisify(client.keys).bind(client);
 
 function RoomSession(options) {
-  this._rooms = {};
-
-  this.getRooms = function () {
-    return this._rooms;
+  this.getRooms = async () => {
+    return await keys("room:*");
   };
 
-  this.getRoom = function (id) {
-    return this._rooms[id];
+  this.getRoom = async (roomId) => {
+    const room = await hgetall(`room:${roomId}`);
+    room.tokens = await hgetall(`token:${roomId}`);
+    room.members = await hgetall(`member:${roomId}`);
+    return room;
   };
 
-  this.createRoom = function ({
+  this.getToken = async (roomId) => {
+    return await hgetall(`token:${roomId}`);
+  };
+
+  this.getMember = async (roomId) => {
+    return await hgetall(`member:${roomId}`);
+  };
+
+  this.createRoom = async ({
     socketId,
     mediaPipelineId,
     compositeId,
     numberOfMembers = 10,
-  }) {
+  }) => {
     let roomId = "";
     do {
       roomId = crypto.randomBytes(16).toString("base64").replace(/=/g, "");
-    } while (this._rooms[roomId]);
-    const tokens = {};
+    } while (await exists(`room:${roomId}`));
+
+    await hset(
+      `room:${roomId}`,
+      "id",
+      roomId,
+      "masterId",
+      socketId,
+      "mediaPipelineId",
+      mediaPipelineId,
+      "compositeId",
+      compositeId
+    );
+
+    const room = await hgetall(`room:${roomId}`);
+
+    const _tokens = [];
     for (let i = 0; i < numberOfMembers; i++) {
       const token = Buffer.from(`${roomId}#${i}`)
         .toString("base64")
         .replace(/=/g, "");
-      tokens[token] = token;
+      _tokens.push(token, token);
     }
-    tokens.length = numberOfMembers;
-    const newRoom = {
-      id: roomId,
-      masterId: socketId,
-      mediaPipelineId,
-      compositeId,
-      tokens,
-      members: {},
-    };
-    this._rooms[roomId] = newRoom;
+    _tokens.push("length", numberOfMembers);
+
+    await hset(`token:${roomId}`, ..._tokens);
+
+    room.tokens = await hgetall(`token:${roomId}`);
+    room.members = null;
 
     if (options && options.mode === "debug")
       console.log(`Create room: ${roomId}`);
-    return newRoom;
+
+    return room;
   };
 
-  this.releaseRoom = function (roomId) {
-    const room = this._rooms[roomId];
+  this.releaseRoom = async (roomId) => {
+    const room = await hgetall(`room:${roomId}`);
     if (!room) return null;
-    const temp = {
-      id: roomId,
-      masterId: room.masterId,
-      mediaPipelineId: room.mediaPipelineId,
-      compositeId: room.compositeId,
-      members: { ...room.members },
-    };
-    delete this._rooms[roomId];
+    room.tokens = await hgetall(`token:${roomId}`);
+    room.members = await hgetall(`member:${roomId}`);
+    await del(`room:${roomId}`);
+    await del(`token:${roomId}`);
+    await del(`member:${roomId}`);
 
     if (options && options.mode === "debug")
       console.log(`Release room: ${roomId}`);
-    return temp;
+    return room;
   };
 
-  this.joinRoom = function ({
+  this.joinRoom = async ({
     name,
     token,
     socketId,
     roomId,
     webRtcEndpointId,
     hubPortId,
-  }) {
-    const room = this._rooms[roomId];
+  }) => {
+    const room = await hgetall(`room:${roomId}`);
     if (!room) throw new Error("Invalid romm ID");
-    if (room.tokens[token] !== token) throw new Error("Invalid token");
-    room.tokens[token] = socketId;
-    room.members[socketId] = {
-      id: socketId,
-      name,
-      token,
-      roomId,
-      webRtcEndpointId,
-      hubPortId,
-    };
+    room.tokens = await hgetall(`token:${roomId}`);
+    room.members = await hgetall(`member:${roomId}`);
+    if ((await hget(`token:${roomId}`, token)) !== token)
+      throw new Error("Invalid token");
+    await hset(`token:${roomId}`, token, socketId);
+    await hset(
+      `member:${roomId}`,
+      socketId,
+      JSON.stringify({
+        id: socketId,
+        name,
+        token,
+        roomId,
+        webRtcEndpointId,
+        hubPortId,
+      })
+    );
 
     if (options && options.mode === "debug")
       console.log(
         `Client: ${socketId} join room: ${roomId} with token: ${token}`
       );
-    return room.members[socketId];
+    return JSON.parse(await hget(`member:${roomId}`, socketId));
   };
 
-  this.leaveRoom = function ({ roomId, socketId }) {
-    const room = this._rooms[roomId];
-    if (!room) return null;
-    const member = room.members[socketId];
+  this.leaveRoom = async ({ roomId, socketId }) => {
+    const _member = await hget(`member:${roomId}`, socketId);
+    const member = _member ? JSON.parse(_member) : null;
     if (!member) return null;
-    const temp = { ...member };
 
-    delete room.members[socketId];
-    delete room.tokens[temp.token];
+    await hdel(`member:${roomId}`, socketId);
+    await hdel(`token:${roomId}`, member.token);
 
     if (options && options.mode === "debug")
       console.log(`Client: ${socketId} leave room: ${roomId}`);
-    return temp;
+    return member;
   };
 }
 

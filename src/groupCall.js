@@ -92,8 +92,8 @@ const getRoom = (roomId) =>
       room.composite = await getMediaObjectById(room.compositeId);
       return resolve(room);
     } catch (error) {
-      if (room.composite) room.composite.release();
-      if (room.mediaPipeline) room.mediaPipeline.release();
+      if (room && room.composite) room.composite.release();
+      if (room && room.mediaPipeline) room.mediaPipeline.release();
       if (room && room.members) {
         for (let socketId in room.members) {
           io.to(socketId).send({ id: "stopCommunication" });

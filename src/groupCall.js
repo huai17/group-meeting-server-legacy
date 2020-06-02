@@ -85,7 +85,6 @@ const getRoom = (roomId) =>
   new Promise(async (resolve, reject) => {
     try {
       const room = await roomSession.getRoom(roomId);
-      console.log(room);
       if (!room) return resolve(null);
       const mediaPipeline = await getMediaObjectById(room.mediaPipelineId);
       const composite = await getMediaObjectById(room.compositeId);

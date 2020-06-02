@@ -92,14 +92,6 @@ const getRoom = (roomId) =>
       room.composite = await getMediaObjectById(room.compositeId);
       return resolve(room);
     } catch (error) {
-      if (room && room.composite) room.composite.release();
-      if (room && room.mediaPipeline) room.mediaPipeline.release();
-      if (room && room.members) {
-        for (let socketId in room.members) {
-          io.to(socketId).send({ id: "stopCommunication" });
-        }
-      }
-      await roomSession.releaseRoom(roomId);
       return reject(error);
     }
   });
@@ -161,23 +153,30 @@ const createRoom = ({ socketId, numberOfMembers = 10 }) =>
 
 const releaseRoom = ({ roomId, io }) =>
   new Promise(async (resolve, reject) => {
+    let room = null;
+    let mediaPipeline = null;
+    let composite = null;
     try {
-      const room = await getRoom(roomId);
+      room = await roomSession.getRoom(roomId);
       if (!room) return resolve();
-      if (room.composite) room.composite.release();
-      if (room.mediaPipeline) room.mediaPipeline.release();
-
       if (room.members) {
         for (let socketId in room.members) {
           io.to(socketId).send({ id: "stopCommunication" });
         }
       }
-
       await roomSession.releaseRoom(roomId);
-      return resolve();
     } catch (error) {
-      reject(error);
+      return reject(error);
     }
+
+    try {
+      mediaPipeline = await getMediaObjectById(room.mediaPipelineId);
+      composite = await getMediaObjectById(room.compositeId);
+    } catch (error) {}
+
+    if (composite) composite.release();
+    if (mediaPipeline) mediaPipeline.release();
+    return resolve();
   });
 
 const joinRoom = ({ socket, name, token, sdpOffer }) =>

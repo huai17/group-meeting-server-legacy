@@ -14,6 +14,7 @@
     "socket.io-redis": "^5.2.0"
   },
   "scripts": {
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "deploy": "eb deploy face2face-env"
   }
 }

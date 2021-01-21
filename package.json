@@ -13,7 +13,7 @@
     "kurento-client": "^6.13.0",
     "lodash": "^4.17.15",
     "redis": "^3.0.2",
-    "socket.io": "^2.3.0",
+    "socket.io": "^2.4.0",
     "socket.io-redis": "^5.2.0"
   },
   "scripts": {
